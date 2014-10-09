@@ -35,14 +35,32 @@ func (d *InMemoryDriver) ReadStream(path string) (io.ReadCloser, error) {
 	return ioutil.NopCloser(bytes.NewReader(contents)), nil
 }
 
-func (d *InMemoryDriver) WriteStream(path string, reader io.ReadCloser) error {
+func (d *InMemoryDriver) WriteStream(path string, offset uint64, reader io.ReadCloser) error {
 	defer reader.Close()
+
+	resumableOffset, err := d.ResumeWritePosition(path)
+	if err != nil {
+		return err
+	}
+
+	if offset > resumableOffset {
+		return InvalidOffsetError{path, offset}
+	}
+
 	contents, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
 	}
 	d.storage[path] = contents
 	return nil
+}
+
+func (d *InMemoryDriver) ResumeWritePosition(path string) (uint64, error) {
+	contents, ok := d.storage[path]
+	if !ok {
+		return 0, nil
+	}
+	return uint64(len(contents)), nil
 }
 
 func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {

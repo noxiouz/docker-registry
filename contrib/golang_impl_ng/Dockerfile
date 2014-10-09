@@ -1,9 +1,15 @@
 FROM golang:1.3.3
 
-RUN ["mkdir", "-p", "/go/src/app"]
-WORKDIR /go/src/app
-COPY . /go/src/app
+WORKDIR /go/src/
+
+RUN ["mkdir", "-p", "github.com/docker/"]
+
+VOLUME ["/Users/bbland/code/docker/docker-registry:github.com/docker/docker-registry"]
+
+# WORKDIR github.com/docker/docker-registry/contrib/golang_impl_ng
 
 RUN ["go", "get", "-d", "-v", "./..."]
+RUN ["go", "fmt", "./..."]
 RUN ["go", "install", "./..."]
-CMD ["/go/bin/driverclient"]
+ENTRYPOINT ["/go/bin/driverclient", "-driver"]
+CMD ["inmemory"]

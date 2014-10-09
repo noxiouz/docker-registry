@@ -1,8 +1,8 @@
 package ipc
 
 import (
-	"app/driver"
 	"fmt"
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 	"github.com/docker/libchan"
 	"github.com/docker/libchan/spdy"
 	"io"
@@ -25,7 +25,7 @@ func Server(driver driver.Driver) error {
 				panic(err)
 			}
 
-			go func (receiver libchan.Receiver) {
+			go func(receiver libchan.Receiver) {
 				var request Request
 				err = receiver.Receive(&request)
 				if err != nil {
@@ -71,13 +71,25 @@ func Server(driver driver.Driver) error {
 					}
 				case "WriteStream":
 					path, _ := request.Parameters["Path"].(string)
+					offset, _ := request.Parameters["Offset"].(uint64)
 					reader, _ := request.Parameters["Reader"].(io.ReadCloser)
-					err = driver.WriteStream(path, reader)
+					err = driver.WriteStream(path, offset, reader)
 					var errorMessage string
 					if err != nil {
 						errorMessage = err.Error()
 					}
 					err = request.ResponseChannel.Send(map[string]interface{}{"Error": errorMessage})
+					if err != nil {
+						panic(err)
+					}
+				case "ResumeWritePosition":
+					path, _ := request.Parameters["Path"].(string)
+					position, err := driver.ResumeWritePosition(path)
+					var errorMessage string
+					if err != nil {
+						errorMessage = err.Error()
+					}
+					err = request.ResponseChannel.Send(map[string]interface{}{"Position": position, "Error": errorMessage})
 					if err != nil {
 						panic(err)
 					}
@@ -109,6 +121,6 @@ func Server(driver driver.Driver) error {
 				}
 			}(receiver)
 		}
-		return nil;
+		return nil
 	}
 }

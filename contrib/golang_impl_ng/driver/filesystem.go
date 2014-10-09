@@ -47,12 +47,20 @@ func (d *FilesystemDriver) ReadStream(path string) (io.ReadCloser, error) {
 	return file, nil
 }
 
-func (d *FilesystemDriver) WriteStream(subPath string, reader io.ReadCloser) error {
+func (d *FilesystemDriver) WriteStream(subPath string, offset uint64, reader io.ReadCloser) error {
 	defer reader.Close()
-	
+
+	resumableOffset, err := d.ResumeWritePosition(subPath)
+	if err != nil {
+		return err
+	}
+	if offset > resumableOffset {
+		return InvalidOffsetError{subPath, offset}
+	}
+
 	fullPath := d.subPath(subPath)
 	parentDir := path.Dir(fullPath)
-	err := os.MkdirAll(parentDir, 0755)
+	err = os.MkdirAll(parentDir, 0755)
 	if err != nil {
 		return err
 	}
@@ -63,8 +71,42 @@ func (d *FilesystemDriver) WriteStream(subPath string, reader io.ReadCloser) err
 	}
 	defer file.Close()
 
-	_, err = io.Copy(file, reader)
+	buf := make([]byte, 32*1024)
+	for {
+		bytesRead, er := reader.Read(buf)
+		if bytesRead > 0 {
+			bytesWritten, ew := file.WriteAt(buf[0:bytesRead], int64(offset))
+			if bytesWritten > 0 {
+				offset += uint64(bytesWritten)
+			}
+			if ew != nil {
+				err = ew
+				break
+			}
+			if bytesRead != bytesWritten {
+				err = io.ErrShortWrite
+				break
+			}
+		}
+		if er == io.EOF {
+			break
+		}
+		if er != nil {
+			err = er
+			break
+		}
+	}
 	return err
+}
+
+func (d *FilesystemDriver) ResumeWritePosition(subPath string) (uint64, error) {
+	fullPath := d.subPath(subPath)
+
+	fileInfo, err := os.Stat(fullPath)
+	if err != nil {
+		return 0, err
+	}
+	return uint64(fileInfo.Size()), nil
 }
 
 func (d *FilesystemDriver) Move(sourcePath string, destPath string) error {

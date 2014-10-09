@@ -9,7 +9,8 @@ type Driver interface {
 	GetContent(path string) ([]byte, error)
 	PutContent(path string, content []byte) error
 	ReadStream(path string) (io.ReadCloser, error)
-	WriteStream(path string, readCloser io.ReadCloser) error
+	WriteStream(path string, offset uint64, readCloser io.ReadCloser) error
+	ResumeWritePosition(path string) (uint64, error)
 	Move(sourcePath string, destPath string) error
 	Delete(path string) error
 }
@@ -40,4 +41,13 @@ type PathNotFoundError struct {
 
 func (err PathNotFoundError) Error() string {
 	return fmt.Sprintf("Path not found: %s", err.Path)
+}
+
+type InvalidOffsetError struct {
+	Path   string
+	Offset uint64
+}
+
+func (err InvalidOffsetError) Error() string {
+	return fmt.Sprintf("Invalid offset: %d for path: %s", err.Offset, err.Path)
 }

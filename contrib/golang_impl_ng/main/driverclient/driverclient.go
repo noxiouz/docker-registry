@@ -1,11 +1,11 @@
 package main
 
 import (
-	"app/driver/ipc"
 	"bytes"
 	"crypto/rand"
 	"flag"
 	"fmt"
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver/ipc"
 	"io/ioutil"
 )
 
@@ -34,9 +34,9 @@ func main() {
 		panic(err)
 	}
 	fmt.Println(string(contents))
-	
+
 	fmt.Println("Putting a stream")
-	err = client.WriteStream("stream", ioutil.NopCloser(bytes.NewReader([]byte("this is a stream"))))
+	err = client.WriteStream("stream", 0, ioutil.NopCloser(bytes.NewReader([]byte("this is a stream"))))
 	if err != nil {
 		panic(err)
 	}
@@ -77,5 +77,5 @@ func main() {
 	fmt.Printf("Received error message: %s\n", err.Error())
 
 	fmt.Println("Bracing for failure!!!")
-	err = client.WriteStream("failboat", ioutil.NopCloser(rand.Reader))
+	err = client.WriteStream("failboat", 0, ioutil.NopCloser(rand.Reader))
 }

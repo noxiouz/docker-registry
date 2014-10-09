@@ -1,11 +1,11 @@
 package ipc
 
 import (
+	"encoding/json"
+	"errors"
 	"github.com/docker/libchan"
 	"github.com/docker/libchan/spdy"
 	"io"
-	"encoding/json"
-	"errors"
 	"net"
 	"os"
 	"os/exec"
@@ -15,17 +15,15 @@ import (
 
 type DriverClient struct {
 	subprocess *exec.Cmd
-	transport *spdy.Transport
+	transport  *spdy.Transport
 }
-
-var driversPath = "/go/bin"
 
 func NewDriverClient(name string, parameters map[string]string) (*DriverClient, error) {
 	paramsBytes, err := json.Marshal(parameters)
 	if err != nil {
 		return nil, err
 	}
-	command := exec.Command(path.Join(driversPath, name), string(paramsBytes))
+	command := exec.Command(path.Join(path.Dir(os.Args[0]), name), string(paramsBytes))
 
 	return &DriverClient{
 		subprocess: command,
@@ -35,7 +33,7 @@ func NewDriverClient(name string, parameters map[string]string) (*DriverClient, 
 func (d *DriverClient) Start() error {
 	fileDescriptors, err := syscall.Socketpair(syscall.AF_LOCAL, syscall.SOCK_STREAM, 0)
 	if err != nil {
-		return err;
+		return err
 	}
 
 	childSocket := os.NewFile(uintptr(fileDescriptors[0]), "childSocket")
@@ -63,7 +61,7 @@ func (d *DriverClient) Start() error {
 	}
 	d.transport = transport
 
-	return nil;
+	return nil
 }
 
 func (d *DriverClient) GetContent(path string) ([]byte, error) {
@@ -146,10 +144,10 @@ func (d *DriverClient) ReadStream(path string) (io.ReadCloser, error) {
 	if errorMessage != "" {
 		err = errors.New(errorMessage)
 	}
-	return reader, nil
+	return reader, err
 }
 
-func (d *DriverClient) WriteStream(path string, reader io.ReadCloser) error {
+func (d *DriverClient) WriteStream(path string, offset uint64, reader io.ReadCloser) error {
 	sender, err := d.transport.NewSendChannel()
 	if err != nil {
 		return err
@@ -157,7 +155,7 @@ func (d *DriverClient) WriteStream(path string, reader io.ReadCloser) error {
 
 	receiver, remoteSender := libchan.Pipe()
 
-	params := map[string]interface{}{"Path": path, "Reader": WrapReadCloser(reader)}
+	params := map[string]interface{}{"Path": path, "Offest": offset, "Reader": WrapReadCloser(reader)}
 	err = sender.Send(&Request{Type: "WriteStream", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return err
@@ -174,6 +172,34 @@ func (d *DriverClient) WriteStream(path string, reader io.ReadCloser) error {
 		err = errors.New(errorMessage)
 	}
 	return err
+}
+
+func (d *DriverClient) ResumeWritePosition(path string) (uint64, error) {
+	sender, err := d.transport.NewSendChannel()
+	if err != nil {
+		return 0, err
+	}
+
+	receiver, remoteSender := libchan.Pipe()
+
+	params := map[string]interface{}{"Path": path}
+	err = sender.Send(&Request{Type: "ResumeWritePosition", Parameters: params, ResponseChannel: remoteSender})
+	if err != nil {
+		return 0, err
+	}
+
+	var response map[string]interface{}
+	err = receiver.Receive(&response)
+	if err != nil {
+		return 0, err
+	}
+
+	offset, _ := response["Offset"].(uint64)
+	errorMessage, _ := response["Error"].(string)
+	if errorMessage != "" {
+		err = errors.New(errorMessage)
+	}
+	return offset, err
 }
 
 func (d *DriverClient) Move(sourcePath string, destPath string) error {

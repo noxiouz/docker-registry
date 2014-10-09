@@ -1,9 +1,9 @@
 package main
 
 import (
-	"app/driver"
-	"app/driver/ipc"
 	"encoding/json"
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver/ipc"
 	"os"
 )
 
@@ -20,6 +20,6 @@ func main() {
 		if ok && rootDirParam != "" {
 			rootDirectory = rootDirParam
 		}
-	} 
+	}
 	ipc.Server(driver.NewFilesystemDriver(rootDirectory))
 }
