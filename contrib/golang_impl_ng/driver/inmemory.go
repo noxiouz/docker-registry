@@ -27,15 +27,16 @@ func (d *InMemoryDriver) PutContent(path string, contents []byte) error {
 	return nil
 }
 
-func (d *InMemoryDriver) ReadStream(path string) (io.Reader, error) {
+func (d *InMemoryDriver) ReadStream(path string) (io.ReadCloser, error) {
 	contents, err := d.GetContent(path)
 	if err != nil {
 		return nil, err
 	}
-	return bytes.NewReader(contents), nil
+	return ioutil.NopCloser(bytes.NewReader(contents)), nil
 }
 
-func (d *InMemoryDriver) WriteStream(path string, reader io.Reader) error {
+func (d *InMemoryDriver) WriteStream(path string, reader io.ReadCloser) error {
+	defer reader.Close()
 	contents, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err

@@ -65,13 +65,13 @@ func Server(driver driver.Driver) error {
 					if err != nil {
 						errorMessage = err.Error()
 					}
-					err = request.ResponseChannel.Send(map[string]interface{}{"Reader": GlorifiedReader{reader}, "Error": errorMessage})
+					err = request.ResponseChannel.Send(map[string]interface{}{"Reader": WrapReadCloser(reader), "Error": errorMessage})
 					if err != nil {
 						panic(err)
 					}
 				case "WriteStream":
 					path, _ := request.Parameters["Path"].(string)
-					reader, _ := request.Parameters["Reader"].(io.Reader)
+					reader, _ := request.Parameters["Reader"].(io.ReadCloser)
 					err = driver.WriteStream(path, reader)
 					var errorMessage string
 					if err != nil {

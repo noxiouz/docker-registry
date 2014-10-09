@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"errors"
 	"github.com/docker/libchan"
 	"io"
 )
@@ -11,14 +12,14 @@ type Request struct {
 	ResponseChannel libchan.Sender
 }
 
-type GlorifiedReader struct {
-	io.Reader
+type noWriteReadWriteCloser struct {
+	io.ReadCloser
 }
 
-func (r GlorifiedReader) Write(p []byte) (n int, err error) {
-	panic("Disallowed write")
+func (r noWriteReadWriteCloser) Write(p []byte) (n int, err error) {
+	return 0, errors.New("Write unsupported")
 }
 
-func (r GlorifiedReader) Close() error {
-	return nil
+func WrapReadCloser(readCloser io.ReadCloser) io.ReadWriteCloser {
+	return noWriteReadWriteCloser{readCloser}
 }

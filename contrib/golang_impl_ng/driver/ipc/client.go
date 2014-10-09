@@ -121,7 +121,7 @@ func (d *DriverClient) PutContent(path string, contents []byte) error {
 	return err
 }
 
-func (d *DriverClient) ReadStream(path string) (io.Reader, error) {
+func (d *DriverClient) ReadStream(path string) (io.ReadCloser, error) {
 	sender, err := d.transport.NewSendChannel()
 	if err != nil {
 		return nil, err
@@ -141,7 +141,7 @@ func (d *DriverClient) ReadStream(path string) (io.Reader, error) {
 		return nil, err
 	}
 
-	reader, _ := response["Reader"].(io.Reader)
+	reader, _ := response["Reader"].(io.ReadCloser)
 	errorMessage, _ := response["Error"].(string)
 	if errorMessage != "" {
 		err = errors.New(errorMessage)
@@ -149,7 +149,7 @@ func (d *DriverClient) ReadStream(path string) (io.Reader, error) {
 	return reader, nil
 }
 
-func (d *DriverClient) WriteStream(path string, reader io.Reader) error {
+func (d *DriverClient) WriteStream(path string, reader io.ReadCloser) error {
 	sender, err := d.transport.NewSendChannel()
 	if err != nil {
 		return err
@@ -157,8 +157,7 @@ func (d *DriverClient) WriteStream(path string, reader io.Reader) error {
 
 	receiver, remoteSender := libchan.Pipe()
 
-	var rwc io.ReadWriteCloser = GlorifiedReader{reader}
-	params := map[string]interface{}{"Path": path, "Reader": rwc}
+	params := map[string]interface{}{"Path": path, "Reader": WrapReadCloser(reader)}
 	err = sender.Send(&Request{Type: "WriteStream", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return err

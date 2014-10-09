@@ -12,6 +12,8 @@ import (
 var driverName = flag.String("driver", "inmemory", "specify the name of the storage driver to use")
 
 func main() {
+	flag.Parse()
+
 	client, err := ipc.NewDriverClient(*driverName, nil)
 	if err != nil {
 		panic(err)
@@ -34,7 +36,7 @@ func main() {
 	fmt.Println(string(contents))
 	
 	fmt.Println("Putting a stream")
-	err = client.WriteStream("stream", bytes.NewReader([]byte("this is a stream")))
+	err = client.WriteStream("stream", ioutil.NopCloser(bytes.NewReader([]byte("this is a stream"))))
 	if err != nil {
 		panic(err)
 	}
@@ -75,5 +77,5 @@ func main() {
 	fmt.Printf("Received error message: %s\n", err.Error())
 
 	fmt.Println("Bracing for failure!!!")
-	err = client.WriteStream("failboat", rand.Reader)
+	err = client.WriteStream("failboat", ioutil.NopCloser(rand.Reader))
 }
