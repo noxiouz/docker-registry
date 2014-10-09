@@ -115,6 +115,6 @@ func (d *FilesystemDriver) Move(sourcePath string, destPath string) error {
 }
 
 func (d *FilesystemDriver) Delete(path string) error {
-	err := os.Remove(d.subPath(path))
+	err := os.RemoveAll(d.subPath(path))
 	return err
 }

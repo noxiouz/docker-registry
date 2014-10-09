@@ -23,7 +23,19 @@ func NewDriverClient(name string, parameters map[string]string) (*DriverClient, 
 	if err != nil {
 		return nil, err
 	}
-	command := exec.Command(path.Join(path.Dir(os.Args[0]), name), string(paramsBytes))
+
+	driverPath := os.ExpandEnv(path.Join("$GOPATH", "bin", name))
+	if _, err := os.Stat(driverPath); os.IsNotExist(err) {
+		driverPath = path.Join(path.Dir(os.Args[0]), name)
+	}
+	if _, err := os.Stat(driverPath); os.IsNotExist(err) {
+		driverPath, err = exec.LookPath(name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	command := exec.Command(driverPath, string(paramsBytes))
 
 	return &DriverClient{
 		subprocess: command,
@@ -62,6 +74,10 @@ func (d *DriverClient) Start() error {
 	d.transport = transport
 
 	return nil
+}
+
+func (d *DriverClient) Stop() error {
+	return d.subprocess.Process.Kill()
 }
 
 func (d *DriverClient) GetContent(path string) ([]byte, error) {
