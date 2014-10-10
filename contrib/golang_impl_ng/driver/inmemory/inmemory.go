@@ -1,7 +1,8 @@
-package driver
+package inmemory
 
 import (
 	"bytes"
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 	"io"
 	"io/ioutil"
 )
@@ -10,14 +11,14 @@ type InMemoryDriver struct {
 	storage map[string][]byte
 }
 
-func NewInMemoryDriver() *InMemoryDriver {
+func NewDriver() *InMemoryDriver {
 	return &InMemoryDriver{make(map[string][]byte)}
 }
 
 func (d *InMemoryDriver) GetContent(path string) ([]byte, error) {
 	contents, ok := d.storage[path]
 	if !ok {
-		return nil, PathNotFoundError{path}
+		return nil, driver.PathNotFoundError{path}
 	}
 	return contents, nil
 }
@@ -44,7 +45,7 @@ func (d *InMemoryDriver) WriteStream(path string, offset uint64, reader io.ReadC
 	}
 
 	if offset > resumableOffset {
-		return InvalidOffsetError{path, offset}
+		return driver.InvalidOffsetError{path, offset}
 	}
 
 	contents, err := ioutil.ReadAll(reader)
@@ -66,7 +67,7 @@ func (d *InMemoryDriver) ResumeWritePosition(path string) (uint64, error) {
 func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {
 	contents, ok := d.storage[sourcePath]
 	if !ok {
-		return PathNotFoundError{sourcePath}
+		return driver.PathNotFoundError{sourcePath}
 	}
 	d.storage[destPath] = contents
 	delete(d.storage, sourcePath)
@@ -76,7 +77,7 @@ func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {
 func (d *InMemoryDriver) Delete(path string) error {
 	_, ok := d.storage[path]
 	if !ok {
-		return PathNotFoundError{path}
+		return driver.PathNotFoundError{path}
 	}
 	delete(d.storage, path)
 	return nil

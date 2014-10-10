@@ -1,6 +1,7 @@
-package driver
+package filesystem
 
 import (
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 	"io"
 	"io/ioutil"
 	"os"
@@ -11,7 +12,7 @@ type FilesystemDriver struct {
 	rootDirectory string
 }
 
-func NewFilesystemDriver(rootDirectory string) *FilesystemDriver {
+func NewDriver(rootDirectory string) *FilesystemDriver {
 	return &FilesystemDriver{rootDirectory}
 }
 
@@ -22,7 +23,7 @@ func (d *FilesystemDriver) subPath(subPath string) string {
 func (d *FilesystemDriver) GetContent(path string) ([]byte, error) {
 	contents, err := ioutil.ReadFile(d.subPath(path))
 	if err != nil {
-		return nil, PathNotFoundError{path}
+		return nil, driver.PathNotFoundError{path}
 	}
 	return contents, nil
 }
@@ -55,7 +56,7 @@ func (d *FilesystemDriver) WriteStream(subPath string, offset uint64, reader io.
 		return err
 	}
 	if offset > resumableOffset {
-		return InvalidOffsetError{subPath, offset}
+		return driver.InvalidOffsetError{subPath, offset}
 	}
 
 	fullPath := d.subPath(subPath)
