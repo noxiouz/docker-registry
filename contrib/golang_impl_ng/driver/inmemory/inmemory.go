@@ -5,6 +5,7 @@ import (
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 	"io"
 	"io/ioutil"
+	"strings"
 )
 
 type InMemoryDriver struct {
@@ -76,9 +77,24 @@ func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {
 
 func (d *InMemoryDriver) Delete(path string) error {
 	_, ok := d.storage[path]
-	if !ok {
+	if ok {
+		delete(d.storage, path)
+		return nil
+	}
+
+	subPaths := make([]string, 0)
+	for k := range d.storage {
+		if k != path && strings.HasPrefix(k, path) {
+			subPaths = append(subPaths, k)
+		}
+	}
+
+	if len(subPaths) == 0 {
 		return driver.PathNotFoundError{path}
 	}
-	delete(d.storage, path)
+
+	for _, subPath := range subPaths {
+		delete(d.storage, subPath)
+	}
 	return nil
 }
