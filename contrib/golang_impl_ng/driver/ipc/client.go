@@ -2,7 +2,6 @@ package ipc
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/docker/libchan"
 	"github.com/docker/libchan/spdy"
 	"io"
@@ -17,6 +16,7 @@ type DriverClient struct {
 	subprocess *exec.Cmd
 	socket     *os.File
 	transport  *spdy.Transport
+	sender     libchan.Sender
 }
 
 func NewDriverClient(name string, parameters map[string]string) (*DriverClient, error) {
@@ -76,18 +76,29 @@ func (d *DriverClient) Start() error {
 		parentSocket.Close()
 		return err
 	}
+	sender, err := transport.NewSendChannel()
+	if err != nil {
+		transport.Close()
+		parentSocket.Close()
+		return err
+	}
+
 	d.socket = parentSocket
 	d.transport = transport
+	d.sender = sender
 
 	return nil
 }
 
 func (d *DriverClient) Stop() error {
+	closeSenderErr := d.sender.Close()
 	closeTransportErr := d.transport.Close()
 	closeSocketErr := d.socket.Close()
 	killErr := d.subprocess.Process.Kill()
 
-	if closeTransportErr != nil {
+	if closeSenderErr != nil {
+		return closeSenderErr
+	} else if closeTransportErr != nil {
 		return closeTransportErr
 	} else if closeSocketErr != nil {
 		return closeSocketErr
@@ -96,193 +107,156 @@ func (d *DriverClient) Stop() error {
 }
 
 func (d *DriverClient) GetContent(path string) ([]byte, error) {
-	sender, err := d.transport.NewSendChannel()
-	if err != nil {
-		return nil, err
-	}
-
 	receiver, remoteSender := libchan.Pipe()
 
 	params := map[string]interface{}{"Path": path}
-	err = sender.Send(&Request{Type: "GetContent", Parameters: params, ResponseChannel: remoteSender})
+	err := d.sender.Send(&Request{Type: "GetContent", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return nil, err
 	}
 
-	var response map[string]interface{}
+	var response GetContentResponse
 	err = receiver.Receive(&response)
 	if err != nil {
 		return nil, err
 	}
 
-	responseBytes, _ := response["Contents"].([]byte)
-	errorMessage, _ := response["Error"].(string)
-	if errorMessage != "" {
-		err = errors.New(errorMessage)
+	if response.Error != nil {
+		return nil, response.Error
 	}
-	return responseBytes, err
+
+	return response.Content, nil
 }
 
 func (d *DriverClient) PutContent(path string, contents []byte) error {
-	sender, err := d.transport.NewSendChannel()
-	if err != nil {
-		return err
-	}
-
 	receiver, remoteSender := libchan.Pipe()
 
 	params := map[string]interface{}{"Path": path, "Contents": contents}
-	err = sender.Send(&Request{Type: "PutContent", Parameters: params, ResponseChannel: remoteSender})
+	err := d.sender.Send(&Request{Type: "PutContent", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return err
 	}
 
-	var response map[string]interface{}
+	var response PutContentResponse
 	err = receiver.Receive(&response)
 	if err != nil {
+		panic(err)
 		return err
 	}
 
-	errorMessage, _ := response["Error"].(string)
-	if errorMessage != "" {
-		err = errors.New(errorMessage)
+	if response.Error != nil {
+		return response.Error
 	}
-	return err
+
+	return nil
 }
 
 func (d *DriverClient) ReadStream(path string) (io.ReadCloser, error) {
-	sender, err := d.transport.NewSendChannel()
-	if err != nil {
-		return nil, err
-	}
-
 	receiver, remoteSender := libchan.Pipe()
 
 	params := map[string]interface{}{"Path": path}
-	err = sender.Send(&Request{Type: "ReadStream", Parameters: params, ResponseChannel: remoteSender})
+	err := d.sender.Send(&Request{Type: "ReadStream", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return nil, err
 	}
 
-	var response map[string]interface{}
+	var response ReadStreamResponse
 	err = receiver.Receive(&response)
 	if err != nil {
 		return nil, err
 	}
 
-	reader, _ := response["Reader"].(io.ReadCloser)
-	errorMessage, _ := response["Error"].(string)
-	if errorMessage != "" {
-		err = errors.New(errorMessage)
+	if response.Error != nil {
+		return nil, response.Error
 	}
-	return reader, err
+
+	return response.Reader, nil
 }
 
 func (d *DriverClient) WriteStream(path string, offset uint64, reader io.ReadCloser) error {
-	sender, err := d.transport.NewSendChannel()
-	if err != nil {
-		return err
-	}
-
 	receiver, remoteSender := libchan.Pipe()
 
 	params := map[string]interface{}{"Path": path, "Offest": offset, "Reader": WrapReadCloser(reader)}
-	err = sender.Send(&Request{Type: "WriteStream", Parameters: params, ResponseChannel: remoteSender})
+	err := d.sender.Send(&Request{Type: "WriteStream", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return err
 	}
 
-	var response map[string]interface{}
+	var response WriteStreamResponse
 	err = receiver.Receive(&response)
 	if err != nil {
 		return err
 	}
 
-	errorMessage, _ := response["Error"].(string)
-	if errorMessage != "" {
-		err = errors.New(errorMessage)
+	if response.Error != nil {
+		return response.Error
 	}
-	return err
+
+	return nil
 }
 
 func (d *DriverClient) ResumeWritePosition(path string) (uint64, error) {
-	sender, err := d.transport.NewSendChannel()
-	if err != nil {
-		return 0, err
-	}
-
 	receiver, remoteSender := libchan.Pipe()
 
 	params := map[string]interface{}{"Path": path}
-	err = sender.Send(&Request{Type: "ResumeWritePosition", Parameters: params, ResponseChannel: remoteSender})
+	err := d.sender.Send(&Request{Type: "ResumeWritePosition", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return 0, err
 	}
 
-	var response map[string]interface{}
+	var response ResumeWritePositionResponse
 	err = receiver.Receive(&response)
 	if err != nil {
 		return 0, err
 	}
 
-	offset, _ := response["Offset"].(uint64)
-	errorMessage, _ := response["Error"].(string)
-	if errorMessage != "" {
-		err = errors.New(errorMessage)
+	if response.Error != nil {
+		return 0, response.Error
 	}
-	return offset, err
+
+	return response.Position, nil
 }
 
 func (d *DriverClient) Move(sourcePath string, destPath string) error {
-	sender, err := d.transport.NewSendChannel()
-	if err != nil {
-		return err
-	}
-
 	receiver, remoteSender := libchan.Pipe()
 
 	params := map[string]interface{}{"SourcePath": sourcePath, "DestPath": destPath}
-	err = sender.Send(&Request{Type: "Move", Parameters: params, ResponseChannel: remoteSender})
+	err := d.sender.Send(&Request{Type: "Move", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return err
 	}
 
-	var response map[string]interface{}
+	var response MoveResponse
 	err = receiver.Receive(&response)
 	if err != nil {
 		return err
 	}
 
-	errorMessage, _ := response["Error"].(string)
-	if errorMessage != "" {
-		err = errors.New(errorMessage)
+	if response.Error != nil {
+		return response.Error
 	}
-	return err
+
+	return nil
 }
 
 func (d *DriverClient) Delete(path string) error {
-	sender, err := d.transport.NewSendChannel()
-	if err != nil {
-		return err
-	}
-
 	receiver, remoteSender := libchan.Pipe()
 
 	params := map[string]interface{}{"Path": path}
-	err = sender.Send(&Request{Type: "Delete", Parameters: params, ResponseChannel: remoteSender})
+	err := d.sender.Send(&Request{Type: "Delete", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return err
 	}
 
-	var response map[string]interface{}
+	var response DeleteResponse
 	err = receiver.Receive(&response)
 	if err != nil {
 		return err
 	}
 
-	errorMessage, _ := response["Error"].(string)
-	if errorMessage != "" {
-		err = errors.New(errorMessage)
+	if response.Error != nil {
+		return response.Error
 	}
-	return err
+
+	return nil
 }
