@@ -15,6 +15,7 @@ import (
 
 type DriverClient struct {
 	subprocess *exec.Cmd
+	socket     *os.File
 	transport  *spdy.Transport
 }
 
@@ -56,28 +57,42 @@ func (d *DriverClient) Start() error {
 	d.subprocess.ExtraFiles = []*os.File{childSocket}
 
 	if err = d.subprocess.Start(); err != nil {
+		parentSocket.Close()
 		return err
 	}
 
 	if err = childSocket.Close(); err != nil {
+		parentSocket.Close()
 		return err
 	}
 
 	connection, err := net.FileConn(parentSocket)
 	if err != nil {
+		parentSocket.Close()
 		return err
 	}
 	transport, err := spdy.NewClientTransport(connection)
 	if err != nil {
+		parentSocket.Close()
 		return err
 	}
+	d.socket = parentSocket
 	d.transport = transport
 
 	return nil
 }
 
 func (d *DriverClient) Stop() error {
-	return d.subprocess.Process.Kill()
+	closeTransportErr := d.transport.Close()
+	closeSocketErr := d.socket.Close()
+	killErr := d.subprocess.Process.Kill()
+
+	if closeTransportErr != nil {
+		return closeTransportErr
+	} else if closeSocketErr != nil {
+		return closeSocketErr
+	}
+	return killErr
 }
 
 func (d *DriverClient) GetContent(path string) ([]byte, error) {

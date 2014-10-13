@@ -12,10 +12,12 @@ import (
 
 func Server(driver driver.Driver) error {
 	childSocket := os.NewFile(3, "childSocket")
+	defer childSocket.Close()
 	conn, err := net.FileConn(childSocket)
 	if err != nil {
 		panic(err)
 	}
+	defer conn.Close()
 	if transport, err := spdy.NewServerTransport(conn); err != nil {
 		panic(err)
 	} else {
