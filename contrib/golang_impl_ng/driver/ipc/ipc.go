@@ -3,9 +3,10 @@ package ipc
 import (
 	"errors"
 	"fmt"
-	"github.com/docker/libchan"
 	"io"
 	"reflect"
+
+	"github.com/docker/libchan"
 )
 
 type Request struct {

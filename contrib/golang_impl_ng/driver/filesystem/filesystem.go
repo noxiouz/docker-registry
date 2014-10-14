@@ -1,11 +1,12 @@
 package filesystem
 
 import (
-	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 	"io"
 	"io/ioutil"
 	"os"
 	"path"
+
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 )
 
 type FilesystemDriver struct {

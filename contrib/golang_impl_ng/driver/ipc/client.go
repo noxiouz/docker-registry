@@ -2,14 +2,15 @@ package ipc
 
 import (
 	"encoding/json"
-	"github.com/docker/libchan"
-	"github.com/docker/libchan/spdy"
 	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path"
 	"syscall"
+
+	"github.com/docker/libchan"
+	"github.com/docker/libchan/spdy"
 )
 
 type DriverClient struct {

@@ -2,12 +2,13 @@ package ipc
 
 import (
 	"fmt"
-	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
-	"github.com/docker/libchan"
-	"github.com/docker/libchan/spdy"
 	"io"
 	"net"
 	"os"
+
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
+	"github.com/docker/libchan"
+	"github.com/docker/libchan/spdy"
 )
 
 func Server(driver driver.Driver) error {

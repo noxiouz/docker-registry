@@ -1,11 +1,12 @@
 package filesystem
 
 import (
+	"os"
+	"testing"
+
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver/ipc"
 	. "gopkg.in/check.v1"
-	"os"
-	"testing"
 )
 
 // Hook up gocheck into the "go test" runner.

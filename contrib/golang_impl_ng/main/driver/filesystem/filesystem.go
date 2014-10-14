@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver/filesystem"
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver/ipc"
-	"os"
 )
 
 func main() {

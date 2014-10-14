@@ -2,10 +2,11 @@ package inmemory
 
 import (
 	"bytes"
-	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 	"io"
 	"io/ioutil"
 	"strings"
+
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 )
 
 type InMemoryDriver struct {

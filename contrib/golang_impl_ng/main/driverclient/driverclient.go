@@ -5,8 +5,9 @@ import (
 	"crypto/rand"
 	"flag"
 	"fmt"
-	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver/ipc"
 	"io/ioutil"
+
+	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver/ipc"
 )
 
 var driverName = flag.String("driver", "inmemory", "specify the name of the storage driver to use")
