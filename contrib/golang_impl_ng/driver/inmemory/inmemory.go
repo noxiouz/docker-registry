@@ -54,6 +54,11 @@ func (d *InMemoryDriver) WriteStream(path string, offset uint64, reader io.ReadC
 	if err != nil {
 		return err
 	}
+
+	if offset > 0 {
+		contents = append(d.storage[path][0:offset], contents...)
+	}
+
 	d.storage[path] = contents
 	return nil
 }

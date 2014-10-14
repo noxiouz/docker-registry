@@ -68,7 +68,13 @@ func (d *FilesystemDriver) WriteStream(subPath string, offset uint64, reader io.
 		return err
 	}
 
-	file, err := os.Create(fullPath)
+	var file *os.File
+	if offset == 0 {
+		file, err = os.Create(fullPath)
+	} else {
+		file, err = os.OpenFile(fullPath, os.O_WRONLY|os.O_APPEND, 0)
+	}
+
 	if err != nil {
 		return err
 	}

@@ -177,7 +177,7 @@ func (d *DriverClient) ReadStream(path string) (io.ReadCloser, error) {
 func (d *DriverClient) WriteStream(path string, offset uint64, reader io.ReadCloser) error {
 	receiver, remoteSender := libchan.Pipe()
 
-	params := map[string]interface{}{"Path": path, "Offest": offset, "Reader": WrapReadCloser(reader)}
+	params := map[string]interface{}{"Path": path, "Offset": offset, "Reader": WrapReadCloser(reader)}
 	err := d.sender.Send(&Request{Type: "WriteStream", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return err

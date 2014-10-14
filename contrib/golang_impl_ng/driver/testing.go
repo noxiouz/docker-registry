@@ -58,9 +58,7 @@ func (suite *InProcessDriverSuite) TestWriteRead4(c *C) {
 func (suite *InProcessDriverSuite) TestReadNonexistent(c *C) {
 	filename := randomPath(32)
 	_, err := suite.Driver.GetContent(filename)
-	if err == nil {
-		c.Errorf("%s should not exist", filename)
-	}
+	c.Assert(err, NotNil)
 }
 
 func (suite *InProcessDriverSuite) TestWriteReadStreams1(c *C) {
@@ -87,12 +85,53 @@ func (suite *InProcessDriverSuite) TestWriteReadStreams4(c *C) {
 	suite.writeReadCompare(c, filename, contents, contents)
 }
 
+func (suite *InProcessDriverSuite) TestContinueStreamAppend(c *C) {
+	filename := randomPath(32)
+
+	chunkSize := uint64(32)
+
+	contentsChunk1 := []byte(randomPath(chunkSize))
+	contentsChunk2 := []byte(randomPath(chunkSize))
+	contentsChunk3 := []byte(randomPath(chunkSize))
+
+	err := suite.Driver.WriteStream(filename, 0, ioutil.NopCloser(bytes.NewReader(contentsChunk1)))
+	c.Assert(err, IsNil)
+
+	received, err := suite.Driver.GetContent(filename)
+	c.Assert(err, IsNil)
+	c.Assert(received, DeepEquals, contentsChunk1)
+
+	offset, err := suite.Driver.ResumeWritePosition(filename)
+	c.Assert(err, IsNil)
+	c.Assert(offset, Equals, chunkSize)
+
+	err = suite.Driver.WriteStream(filename, offset, ioutil.NopCloser(bytes.NewReader(contentsChunk2)))
+	c.Assert(err, IsNil)
+
+	received, err = suite.Driver.GetContent(filename)
+	c.Assert(err, IsNil)
+	c.Assert(received, DeepEquals, append(contentsChunk1, contentsChunk2...))
+
+	offset, err = suite.Driver.ResumeWritePosition(filename)
+	c.Assert(err, IsNil)
+	c.Assert(offset, Equals, 2*chunkSize)
+
+	err = suite.Driver.WriteStream(filename, offset, ioutil.NopCloser(bytes.NewReader(contentsChunk3)))
+	c.Assert(err, IsNil)
+
+	received, err = suite.Driver.GetContent(filename)
+	c.Assert(err, IsNil)
+	c.Assert(received, DeepEquals, append(append(contentsChunk1, contentsChunk2...), contentsChunk3...))
+
+	offset, err = suite.Driver.ResumeWritePosition(filename)
+	c.Assert(err, IsNil)
+	c.Assert(offset, Equals, uint64(3*chunkSize))
+}
+
 func (suite *InProcessDriverSuite) TestReadNonexistentStream(c *C) {
 	filename := randomPath(32)
 	_, err := suite.Driver.ReadStream(filename)
-	if err == nil {
-		c.Errorf("%s should not exist", filename)
-	}
+	c.Assert(err, NotNil)
 }
 
 func (suite *InProcessDriverSuite) TestRemoveExisting(c *C) {
@@ -100,30 +139,19 @@ func (suite *InProcessDriverSuite) TestRemoveExisting(c *C) {
 	contents := []byte(randomPath(32))
 
 	err := suite.Driver.PutContent(filename, contents)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, IsNil)
 
 	err = suite.Driver.Delete(filename)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, IsNil)
 
 	_, err = suite.Driver.GetContent(filename)
-	if err == nil {
-		c.Errorf("%s should not exist", filename)
-		return
-	}
+	c.Assert(err, NotNil)
 }
 
 func (suite *InProcessDriverSuite) TestRemoveNonexistent(c *C) {
 	filename := randomPath(32)
 	err := suite.Driver.Delete(filename)
-	if err == nil {
-		c.Errorf("%s should not exist", filename)
-	}
+	c.Assert(err, NotNil)
 }
 
 func (suite *InProcessDriverSuite) TestRemoveFolder(c *C) {
@@ -133,86 +161,48 @@ func (suite *InProcessDriverSuite) TestRemoveFolder(c *C) {
 	contents := []byte(randomPath(32))
 
 	err := suite.Driver.PutContent(path.Join(dirname, filename1), contents)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, IsNil)
 
 	err = suite.Driver.PutContent(path.Join(dirname, filename2), contents)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, IsNil)
 
 	err = suite.Driver.Delete(dirname)
-	if err != nil {
-		c.Error(err)
-		return
-	}
+	c.Assert(err, IsNil)
 
 	_, err = suite.Driver.GetContent(path.Join(dirname, filename1))
-	if err == nil {
-		c.Errorf("%s should not exist", path.Join(dirname, filename1))
-		return
-	}
+	c.Assert(err, NotNil)
 
 	_, err = suite.Driver.GetContent(path.Join(dirname, filename2))
-	if err == nil {
-		c.Errorf("%s should not exist", path.Join(dirname, filename2))
-		return
-	}
+	c.Assert(err, NotNil)
 }
 
-func (suite *InProcessDriverSuite) writeReadCompare(c *C, filename string, contents, expected []byte) bool {
+func (suite *InProcessDriverSuite) writeReadCompare(c *C, filename string, contents, expected []byte) {
 	err := suite.Driver.PutContent(filename, contents)
-	if err != nil {
-		c.Error(err)
-		return false
-	}
+	c.Assert(err, IsNil)
 
 	readContents, err := suite.Driver.GetContent(filename)
-	if err != nil {
-		c.Error(err)
-		return false
-	}
+	c.Assert(err, IsNil)
 
-	if !bytes.Equal(contents, readContents) {
-		c.Errorf("Expected: %s, got %s", contents, readContents)
-		return false
-	}
-	return true
+	c.Assert(readContents, DeepEquals, contents)
 }
 
-func (suite *InProcessDriverSuite) writeReadCompareStreams(c *C, filename string, contents, expected []byte) bool {
+func (suite *InProcessDriverSuite) writeReadCompareStreams(c *C, filename string, contents, expected []byte) {
 	err := suite.Driver.WriteStream(filename, 0, ioutil.NopCloser(bytes.NewReader(contents)))
-	if err != nil {
-		c.Error(err)
-		return false
-	}
+	c.Assert(err, IsNil)
 
 	reader, err := suite.Driver.ReadStream(filename)
-	if err != nil {
-		c.Error(err)
-		return false
-	}
+	c.Assert(err, IsNil)
 	defer reader.Close()
 
 	readContents, err := ioutil.ReadAll(reader)
-	if err != nil {
-		c.Error(err)
-		return false
-	}
+	c.Assert(err, IsNil)
 
-	if !bytes.Equal(contents, readContents) {
-		c.Errorf("Expected: %s, got %s", contents, readContents)
-		return false
-	}
-	return true
+	c.Assert(readContents, DeepEquals, contents)
 }
 
 var pathChars = []byte("abcdefghijklmnopqrstuvwxyz")
 
-func randomPath(length uint) string {
+func randomPath(length uint64) string {
 	b := make([]byte, length)
 	for i := range b {
 		b[i] = pathChars[rand.Intn(len(pathChars))]

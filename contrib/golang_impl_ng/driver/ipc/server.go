@@ -84,8 +84,14 @@ func handleRequest(driver driver.Driver, request Request) {
 			panic(err)
 		}
 	case "WriteStream":
+		var offset uint64
+
 		path, _ := request.Parameters["Path"].(string)
-		offset, _ := request.Parameters["Offset"].(uint64)
+		offset, ok := request.Parameters["Offset"].(uint64)
+		if !ok {
+			offsetSigned, _ := request.Parameters["Offset"].(int64)
+			offset = uint64(offsetSigned)
+		}
 		reader, _ := request.Parameters["Reader"].(io.ReadCloser)
 		err := driver.WriteStream(path, offset, reader)
 		response := WriteStreamResponse{
