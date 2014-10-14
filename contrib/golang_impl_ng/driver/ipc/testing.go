@@ -137,9 +137,58 @@ func (suite *IPCDriverSuite) TestContinueStreamAppend(c *C) {
 	c.Assert(offset, Equals, uint64(3*chunkSize))
 }
 
+func (suite *IPCDriverSuite) TestReadStreamWithOffset(c *C) {
+	filename := randomPath(32)
+
+	chunkSize := uint64(32)
+
+	contentsChunk1 := []byte(randomPath(chunkSize))
+	contentsChunk2 := []byte(randomPath(chunkSize))
+	contentsChunk3 := []byte(randomPath(chunkSize))
+
+	err := suite.DriverClient.PutContent(filename, append(append(contentsChunk1, contentsChunk2...), contentsChunk3...))
+	c.Assert(err, IsNil)
+
+	reader, err := suite.DriverClient.ReadStream(filename, 0)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, append(append(contentsChunk1, contentsChunk2...), contentsChunk3...))
+
+	reader, err = suite.DriverClient.ReadStream(filename, chunkSize)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err = ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, append(contentsChunk2, contentsChunk3...))
+
+	reader, err = suite.DriverClient.ReadStream(filename, chunkSize*2)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err = ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, contentsChunk3)
+
+	reader, err = suite.DriverClient.ReadStream(filename, chunkSize*3)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err = ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, []byte{})
+}
+
 func (suite *IPCDriverSuite) TestReadNonexistentStream(c *C) {
 	filename := randomPath(32)
-	_, err := suite.DriverClient.ReadStream(filename)
+	_, err := suite.DriverClient.ReadStream(filename, 0)
 	c.Assert(err, NotNil)
 }
 
@@ -199,7 +248,7 @@ func (suite *IPCDriverSuite) writeReadCompareStreams(c *C, filename string, cont
 	err := suite.DriverClient.WriteStream(filename, 0, ioutil.NopCloser(bytes.NewReader(contents)))
 	c.Assert(err, IsNil)
 
-	reader, err := suite.DriverClient.ReadStream(filename)
+	reader, err := suite.DriverClient.ReadStream(filename, 0)
 	c.Assert(err, IsNil)
 	defer reader.Close()
 

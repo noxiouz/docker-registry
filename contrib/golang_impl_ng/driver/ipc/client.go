@@ -152,10 +152,10 @@ func (d *DriverClient) PutContent(path string, contents []byte) error {
 	return nil
 }
 
-func (d *DriverClient) ReadStream(path string) (io.ReadCloser, error) {
+func (d *DriverClient) ReadStream(path string, offset uint64) (io.ReadCloser, error) {
 	receiver, remoteSender := libchan.Pipe()
 
-	params := map[string]interface{}{"Path": path}
+	params := map[string]interface{}{"Path": path, "Offset": offset}
 	err := d.sender.Send(&Request{Type: "ReadStream", Parameters: params, ResponseChannel: remoteSender})
 	if err != nil {
 		return nil, err

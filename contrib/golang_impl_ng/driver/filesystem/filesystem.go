@@ -41,11 +41,21 @@ func (d *FilesystemDriver) PutContent(subPath string, contents []byte) error {
 	return err
 }
 
-func (d *FilesystemDriver) ReadStream(path string) (io.ReadCloser, error) {
+func (d *FilesystemDriver) ReadStream(path string, offset uint64) (io.ReadCloser, error) {
 	file, err := os.OpenFile(d.subPath(path), os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
 	}
+
+	seekPos, err := file.Seek(int64(offset), os.SEEK_SET)
+	if err != nil {
+		file.Close()
+		return nil, err
+	} else if seekPos < int64(offset) {
+		file.Close()
+		return nil, driver.InvalidOffsetError{path, offset}
+	}
+
 	return file, nil
 }
 

@@ -30,12 +30,15 @@ func (d *InMemoryDriver) PutContent(path string, contents []byte) error {
 	return nil
 }
 
-func (d *InMemoryDriver) ReadStream(path string) (io.ReadCloser, error) {
+func (d *InMemoryDriver) ReadStream(path string, offset uint64) (io.ReadCloser, error) {
 	contents, err := d.GetContent(path)
 	if err != nil {
 		return nil, err
+	} else if len(contents) < int(offset) {
+		return nil, driver.InvalidOffsetError{path, offset}
 	}
-	return ioutil.NopCloser(bytes.NewReader(contents)), nil
+
+	return ioutil.NopCloser(bytes.NewReader(contents[offset:])), nil
 }
 
 func (d *InMemoryDriver) WriteStream(path string, offset uint64, reader io.ReadCloser) error {

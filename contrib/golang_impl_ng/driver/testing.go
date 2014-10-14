@@ -128,9 +128,58 @@ func (suite *InProcessDriverSuite) TestContinueStreamAppend(c *C) {
 	c.Assert(offset, Equals, uint64(3*chunkSize))
 }
 
+func (suite *InProcessDriverSuite) TestReadStreamWithOffset(c *C) {
+	filename := randomPath(32)
+
+	chunkSize := uint64(32)
+
+	contentsChunk1 := []byte(randomPath(chunkSize))
+	contentsChunk2 := []byte(randomPath(chunkSize))
+	contentsChunk3 := []byte(randomPath(chunkSize))
+
+	err := suite.Driver.PutContent(filename, append(append(contentsChunk1, contentsChunk2...), contentsChunk3...))
+	c.Assert(err, IsNil)
+
+	reader, err := suite.Driver.ReadStream(filename, 0)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, append(append(contentsChunk1, contentsChunk2...), contentsChunk3...))
+
+	reader, err = suite.Driver.ReadStream(filename, chunkSize)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err = ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, append(contentsChunk2, contentsChunk3...))
+
+	reader, err = suite.Driver.ReadStream(filename, chunkSize*2)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err = ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, contentsChunk3)
+
+	reader, err = suite.Driver.ReadStream(filename, chunkSize*3)
+	c.Assert(err, IsNil)
+	defer reader.Close()
+
+	readContents, err = ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+
+	c.Assert(readContents, DeepEquals, []byte{})
+}
+
 func (suite *InProcessDriverSuite) TestReadNonexistentStream(c *C) {
 	filename := randomPath(32)
-	_, err := suite.Driver.ReadStream(filename)
+	_, err := suite.Driver.ReadStream(filename, 0)
 	c.Assert(err, NotNil)
 }
 
@@ -190,7 +239,7 @@ func (suite *InProcessDriverSuite) writeReadCompareStreams(c *C, filename string
 	err := suite.Driver.WriteStream(filename, 0, ioutil.NopCloser(bytes.NewReader(contents)))
 	c.Assert(err, IsNil)
 
-	reader, err := suite.Driver.ReadStream(filename)
+	reader, err := suite.Driver.ReadStream(filename, 0)
 	c.Assert(err, IsNil)
 	defer reader.Close()
 

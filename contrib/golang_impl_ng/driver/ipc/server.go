@@ -71,8 +71,15 @@ func handleRequest(driver driver.Driver, request Request) {
 			panic(err)
 		}
 	case "ReadStream":
+		var offset uint64
+
 		path, _ := request.Parameters["Path"].(string)
-		reader, err := driver.ReadStream(path)
+		offset, ok := request.Parameters["Offset"].(uint64)
+		if !ok {
+			offsetSigned, _ := request.Parameters["Offset"].(int64)
+			offset = uint64(offsetSigned)
+		}
+		reader, err := driver.ReadStream(path, offset)
 		var response ReadStreamResponse
 		if err != nil {
 			response = ReadStreamResponse{Error: ResponseError(err)}

@@ -8,7 +8,7 @@ import (
 type Driver interface {
 	GetContent(path string) ([]byte, error)
 	PutContent(path string, content []byte) error
-	ReadStream(path string) (io.ReadCloser, error)
+	ReadStream(path string, offset uint64) (io.ReadCloser, error)
 	WriteStream(path string, offset uint64, readCloser io.ReadCloser) error
 	ResumeWritePosition(path string) (uint64, error)
 	Move(sourcePath string, destPath string) error

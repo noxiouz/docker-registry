@@ -42,7 +42,7 @@ func main() {
 		panic(err)
 	}
 	fmt.Println("Getting 'stream'")
-	reader, err := client.ReadStream("stream")
+	reader, err := client.ReadStream("stream", 0)
 	if err != nil {
 		panic(err)
 	}
