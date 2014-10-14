@@ -53,9 +53,10 @@ func (d *FilesystemDriver) WriteStream(subPath string, offset uint64, reader io.
 	defer reader.Close()
 
 	resumableOffset, err := d.ResumeWritePosition(subPath)
-	if err != nil {
+	if _, pathNotFound := err.(driver.PathNotFoundError); err != nil && !pathNotFound {
 		return err
 	}
+
 	if offset > resumableOffset {
 		return driver.InvalidOffsetError{subPath, offset}
 	}
@@ -105,8 +106,10 @@ func (d *FilesystemDriver) ResumeWritePosition(subPath string) (uint64, error) {
 	fullPath := d.subPath(subPath)
 
 	fileInfo, err := os.Stat(fullPath)
-	if err != nil {
+	if err != nil && !os.IsNotExist(err) {
 		return 0, err
+	} else if err != nil {
+		return 0, driver.PathNotFoundError{subPath}
 	}
 	return uint64(fileInfo.Size()), nil
 }
@@ -116,7 +119,16 @@ func (d *FilesystemDriver) Move(sourcePath string, destPath string) error {
 	return err
 }
 
-func (d *FilesystemDriver) Delete(path string) error {
-	err := os.RemoveAll(d.subPath(path))
+func (d *FilesystemDriver) Delete(subPath string) error {
+	fullPath := d.subPath(subPath)
+
+	_, err := os.Stat(fullPath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	} else if err != nil {
+		return driver.PathNotFoundError{subPath}
+	}
+
+	err = os.RemoveAll(fullPath)
 	return err
 }

@@ -73,9 +73,11 @@ func handleRequest(driver driver.Driver, request Request) {
 	case "ReadStream":
 		path, _ := request.Parameters["Path"].(string)
 		reader, err := driver.ReadStream(path)
-		response := ReadStreamResponse{
-			Reader: WrapReadCloser(reader),
-			Error:  ResponseError(err),
+		var response ReadStreamResponse
+		if err != nil {
+			response = ReadStreamResponse{Error: ResponseError(err)}
+		} else {
+			response = ReadStreamResponse{Reader: WrapReadCloser(reader)}
 		}
 		err = request.ResponseChannel.Send(&response)
 		if err != nil {

@@ -2,6 +2,7 @@ package ipc
 
 import (
 	"bytes"
+	"io/ioutil"
 	"math/rand"
 	"path"
 	"testing"
@@ -62,6 +63,52 @@ func (suite *IPCDriverSuite) TestWriteRead3(c *C) {
 	suite.writeReadCompare(c, filename, contents, contents)
 }
 
+func (suite *IPCDriverSuite) TestWriteRead4(c *C) {
+	filename := randomPath(32)
+	contents := []byte(randomPath(1024 * 1024))
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *IPCDriverSuite) TestReadNonexistent(c *C) {
+	filename := randomPath(32)
+	_, err := suite.DriverClient.GetContent(filename)
+	if err == nil {
+		c.Errorf("%s should not exist", filename)
+	}
+}
+
+func (suite *IPCDriverSuite) TestWriteReadStreams1(c *C) {
+	filename := randomPath(32)
+	contents := []byte("a")
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *IPCDriverSuite) TestWriteReadStreams2(c *C) {
+	filename := randomPath(32)
+	contents := []byte("\xc3\x9f")
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *IPCDriverSuite) TestWriteReadStreams3(c *C) {
+	filename := randomPath(32)
+	contents := []byte(randomPath(32))
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *IPCDriverSuite) TestWriteReadStreams4(c *C) {
+	filename := randomPath(32)
+	contents := []byte(randomPath(1024 * 1024))
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *IPCDriverSuite) TestReadNonexistentStream(c *C) {
+	filename := randomPath(32)
+	_, err := suite.DriverClient.ReadStream(filename)
+	if err == nil {
+		c.Errorf("%s should not exist", filename)
+	}
+}
+
 func (suite *IPCDriverSuite) TestRemoveExisting(c *C) {
 	filename := randomPath(32)
 	contents := []byte(randomPath(32))
@@ -82,6 +129,14 @@ func (suite *IPCDriverSuite) TestRemoveExisting(c *C) {
 	if err == nil {
 		c.Errorf("%s should not exist", filename)
 		return
+	}
+}
+
+func (suite *IPCDriverSuite) TestRemoveNonexistent(c *C) {
+	filename := randomPath(32)
+	err := suite.DriverClient.Delete(filename)
+	if err == nil {
+		c.Errorf("%s should not exist", filename)
 	}
 }
 
@@ -130,6 +185,33 @@ func (suite *IPCDriverSuite) writeReadCompare(c *C, filename string, contents, e
 	}
 
 	readContents, err := suite.DriverClient.GetContent(filename)
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+
+	if !bytes.Equal(contents, readContents) {
+		c.Errorf("Expected: %s, got %s", contents, readContents)
+		return false
+	}
+	return true
+}
+
+func (suite *IPCDriverSuite) writeReadCompareStreams(c *C, filename string, contents, expected []byte) bool {
+	err := suite.DriverClient.WriteStream(filename, 0, ioutil.NopCloser(bytes.NewReader(contents)))
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+
+	reader, err := suite.DriverClient.ReadStream(filename)
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+	defer reader.Close()
+
+	readContents, err := ioutil.ReadAll(reader)
 	if err != nil {
 		c.Error(err)
 		return false

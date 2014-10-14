@@ -2,6 +2,7 @@ package driver
 
 import (
 	"bytes"
+	"io/ioutil"
 	"math/rand"
 	"path"
 	"testing"
@@ -48,6 +49,52 @@ func (suite *InProcessDriverSuite) TestWriteRead3(c *C) {
 	suite.writeReadCompare(c, filename, contents, contents)
 }
 
+func (suite *InProcessDriverSuite) TestWriteRead4(c *C) {
+	filename := randomPath(32)
+	contents := []byte(randomPath(1024 * 1024))
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *InProcessDriverSuite) TestReadNonexistent(c *C) {
+	filename := randomPath(32)
+	_, err := suite.Driver.GetContent(filename)
+	if err == nil {
+		c.Errorf("%s should not exist", filename)
+	}
+}
+
+func (suite *InProcessDriverSuite) TestWriteReadStreams1(c *C) {
+	filename := randomPath(32)
+	contents := []byte("a")
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *InProcessDriverSuite) TestWriteReadStreams2(c *C) {
+	filename := randomPath(32)
+	contents := []byte("\xc3\x9f")
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *InProcessDriverSuite) TestWriteReadStreams3(c *C) {
+	filename := randomPath(32)
+	contents := []byte(randomPath(32))
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *InProcessDriverSuite) TestWriteReadStreams4(c *C) {
+	filename := randomPath(32)
+	contents := []byte(randomPath(1024 * 1024))
+	suite.writeReadCompare(c, filename, contents, contents)
+}
+
+func (suite *InProcessDriverSuite) TestReadNonexistentStream(c *C) {
+	filename := randomPath(32)
+	_, err := suite.Driver.ReadStream(filename)
+	if err == nil {
+		c.Errorf("%s should not exist", filename)
+	}
+}
+
 func (suite *InProcessDriverSuite) TestRemoveExisting(c *C) {
 	filename := randomPath(32)
 	contents := []byte(randomPath(32))
@@ -68,6 +115,14 @@ func (suite *InProcessDriverSuite) TestRemoveExisting(c *C) {
 	if err == nil {
 		c.Errorf("%s should not exist", filename)
 		return
+	}
+}
+
+func (suite *InProcessDriverSuite) TestRemoveNonexistent(c *C) {
+	filename := randomPath(32)
+	err := suite.Driver.Delete(filename)
+	if err == nil {
+		c.Errorf("%s should not exist", filename)
 	}
 }
 
@@ -116,6 +171,33 @@ func (suite *InProcessDriverSuite) writeReadCompare(c *C, filename string, conte
 	}
 
 	readContents, err := suite.Driver.GetContent(filename)
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+
+	if !bytes.Equal(contents, readContents) {
+		c.Errorf("Expected: %s, got %s", contents, readContents)
+		return false
+	}
+	return true
+}
+
+func (suite *InProcessDriverSuite) writeReadCompareStreams(c *C, filename string, contents, expected []byte) bool {
+	err := suite.Driver.WriteStream(filename, 0, ioutil.NopCloser(bytes.NewReader(contents)))
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+
+	reader, err := suite.Driver.ReadStream(filename)
+	if err != nil {
+		c.Error(err)
+		return false
+	}
+	defer reader.Close()
+
+	readContents, err := ioutil.ReadAll(reader)
 	if err != nil {
 		c.Error(err)
 		return false
