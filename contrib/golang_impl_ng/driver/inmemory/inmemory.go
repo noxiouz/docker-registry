@@ -2,8 +2,10 @@ package inmemory
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
@@ -74,6 +76,28 @@ func (d *InMemoryDriver) ResumeWritePosition(path string) (uint64, error) {
 	return uint64(len(contents)), nil
 }
 
+func (d *InMemoryDriver) List(prefix string) ([]string, error) {
+	subPathMatcher, err := regexp.Compile(fmt.Sprintf("^%s/[^/]+", prefix))
+	if err != nil {
+		return nil, err
+	}
+
+	keySet := make(map[string]bool)
+	for k := range d.storage {
+		if key := subPathMatcher.FindString(k); key != "" {
+			keySet[key] = true
+		}
+	}
+
+	i := 0
+	keys := make([]string, len(keySet))
+	for k := range keySet {
+		keys[i] = k
+		i++
+	}
+	return keys, nil
+}
+
 func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {
 	contents, ok := d.storage[sourcePath]
 	if !ok {
@@ -85,15 +109,9 @@ func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {
 }
 
 func (d *InMemoryDriver) Delete(path string) error {
-	_, ok := d.storage[path]
-	if ok {
-		delete(d.storage, path)
-		return nil
-	}
-
 	subPaths := make([]string, 0)
 	for k := range d.storage {
-		if k != path && strings.HasPrefix(k, path) {
+		if strings.HasPrefix(k, path) {
 			subPaths = append(subPaths, k)
 		}
 	}

@@ -119,6 +119,17 @@ func handleRequest(driver driver.Driver, request Request) {
 		if err != nil {
 			panic(err)
 		}
+	case "List":
+		prefix, _ := request.Parameters["Prefix"].(string)
+		keys, err := driver.List(prefix)
+		response := ListResponse{
+			Keys:  keys,
+			Error: ResponseError(err),
+		}
+		err = request.ResponseChannel.Send(&response)
+		if err != nil {
+			panic(err)
+		}
 	case "Move":
 		sourcePath, _ := request.Parameters["SourcePath"].(string)
 		destPath, _ := request.Parameters["DestPath"].(string)

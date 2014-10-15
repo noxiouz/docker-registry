@@ -218,6 +218,28 @@ func (d *DriverClient) ResumeWritePosition(path string) (uint64, error) {
 	return response.Position, nil
 }
 
+func (d *DriverClient) List(prefix string) ([]string, error) {
+	receiver, remoteSender := libchan.Pipe()
+
+	params := map[string]interface{}{"Prefix": prefix}
+	err := d.sender.Send(&Request{Type: "List", Parameters: params, ResponseChannel: remoteSender})
+	if err != nil {
+		return nil, err
+	}
+
+	var response ListResponse
+	err = receiver.Receive(&response)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.Error != nil {
+		return nil, response.Error
+	}
+
+	return response.Keys, nil
+}
+
 func (d *DriverClient) Move(sourcePath string, destPath string) error {
 	receiver, remoteSender := libchan.Pipe()
 

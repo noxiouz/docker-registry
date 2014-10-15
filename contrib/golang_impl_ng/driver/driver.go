@@ -11,6 +11,7 @@ type Driver interface {
 	ReadStream(path string, offset uint64) (io.ReadCloser, error)
 	WriteStream(path string, offset uint64, readCloser io.ReadCloser) error
 	ResumeWritePosition(path string) (uint64, error)
+	List(prefix string) ([]string, error)
 	Move(sourcePath string, destPath string) error
 	Delete(path string) error
 }

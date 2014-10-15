@@ -69,6 +69,11 @@ type ResumeWritePositionResponse struct {
 	Error    *responseError
 }
 
+type ListResponse struct {
+	Keys  []string
+	Error *responseError
+}
+
 type MoveResponse struct {
 	Error *responseError
 }

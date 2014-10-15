@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 )
@@ -128,6 +129,28 @@ func (d *FilesystemDriver) ResumeWritePosition(subPath string) (uint64, error) {
 		return 0, driver.PathNotFoundError{subPath}
 	}
 	return uint64(fileInfo.Size()), nil
+}
+
+func (d *FilesystemDriver) List(prefix string) ([]string, error) {
+	prefix = strings.TrimRight(prefix, "/")
+	fullPath := d.subPath(prefix)
+
+	dir, err := os.Open(fullPath)
+	if err != nil {
+		return nil, err
+	}
+
+	fileNames, err := dir.Readdirnames(0)
+	if err != nil {
+		return nil, err
+	}
+
+	keys := make([]string, len(fileNames))
+	for i := 0; i < len(fileNames); i++ {
+		keys[i] = prefix + "/" + fileNames[i]
+	}
+
+	return keys, nil
 }
 
 func (d *FilesystemDriver) Move(sourcePath string, destPath string) error {
