@@ -145,9 +145,9 @@ func (d *FilesystemDriver) List(prefix string) ([]string, error) {
 		return nil, err
 	}
 
-	keys := make([]string, len(fileNames))
-	for i := 0; i < len(fileNames); i++ {
-		keys[i] = prefix + "/" + fileNames[i]
+	keys := make([]string, 0, len(fileNames))
+	for _, fileName := range fileNames {
+		keys = append(keys, path.Join(prefix, fileName))
 	}
 
 	return keys, nil
