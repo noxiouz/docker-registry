@@ -7,19 +7,23 @@ import (
 	"io/ioutil"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/docker/docker-registry/contrib/golang_impl_ng/driver"
 )
 
 type InMemoryDriver struct {
 	storage map[string][]byte
+	mutex   sync.RWMutex
 }
 
 func NewDriver() *InMemoryDriver {
-	return &InMemoryDriver{make(map[string][]byte)}
+	return &InMemoryDriver{storage: make(map[string][]byte)}
 }
 
 func (d *InMemoryDriver) GetContent(path string) ([]byte, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 	contents, ok := d.storage[path]
 	if !ok {
 		return nil, driver.PathNotFoundError{path}
@@ -28,11 +32,15 @@ func (d *InMemoryDriver) GetContent(path string) ([]byte, error) {
 }
 
 func (d *InMemoryDriver) PutContent(path string, contents []byte) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	d.storage[path] = contents
 	return nil
 }
 
 func (d *InMemoryDriver) ReadStream(path string, offset uint64) (io.ReadCloser, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 	contents, err := d.GetContent(path)
 	if err != nil {
 		return nil, err
@@ -40,11 +48,16 @@ func (d *InMemoryDriver) ReadStream(path string, offset uint64) (io.ReadCloser, 
 		return nil, driver.InvalidOffsetError{path, offset}
 	}
 
-	return ioutil.NopCloser(bytes.NewReader(contents[offset:])), nil
+	src := contents[offset:]
+	buf := make([]byte, len(src))
+	copy(buf, src)
+	return ioutil.NopCloser(bytes.NewReader(buf)), nil
 }
 
 func (d *InMemoryDriver) WriteStream(path string, offset uint64, reader io.ReadCloser) error {
 	defer reader.Close()
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 
 	resumableOffset, err := d.ResumeWritePosition(path)
 	if err != nil {
@@ -69,6 +82,8 @@ func (d *InMemoryDriver) WriteStream(path string, offset uint64, reader io.ReadC
 }
 
 func (d *InMemoryDriver) ResumeWritePosition(path string) (uint64, error) {
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 	contents, ok := d.storage[path]
 	if !ok {
 		return 0, nil
@@ -82,6 +97,8 @@ func (d *InMemoryDriver) List(prefix string) ([]string, error) {
 		return nil, err
 	}
 
+	d.mutex.RLock()
+	defer d.mutex.RUnlock()
 	// we use map to collect uniq keys
 	keySet := make(map[string]struct{})
 	for k := range d.storage {
@@ -98,6 +115,8 @@ func (d *InMemoryDriver) List(prefix string) ([]string, error) {
 }
 
 func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	contents, ok := d.storage[sourcePath]
 	if !ok {
 		return driver.PathNotFoundError{sourcePath}
@@ -108,6 +127,8 @@ func (d *InMemoryDriver) Move(sourcePath string, destPath string) error {
 }
 
 func (d *InMemoryDriver) Delete(path string) error {
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 	subPaths := make([]string, 0)
 	for k := range d.storage {
 		if strings.HasPrefix(k, path) {
