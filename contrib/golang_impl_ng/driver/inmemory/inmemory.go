@@ -82,10 +82,11 @@ func (d *InMemoryDriver) List(prefix string) ([]string, error) {
 		return nil, err
 	}
 
-	keySet := make(map[string]bool)
+	// we use map to collect uniq keys
+	keySet := make(map[string]struct{})
 	for k := range d.storage {
 		if key := subPathMatcher.FindString(k); key != "" {
-			keySet[key] = true
+			keySet[key] = struct{}{}
 		}
 	}
 
