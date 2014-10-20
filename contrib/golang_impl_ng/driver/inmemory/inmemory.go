@@ -89,11 +89,9 @@ func (d *InMemoryDriver) List(prefix string) ([]string, error) {
 		}
 	}
 
-	i := 0
-	keys := make([]string, len(keySet))
+	keys := make([]string, 0, len(keySet))
 	for k := range keySet {
-		keys[i] = k
-		i++
+		keys = append(keys, k)
 	}
 	return keys, nil
 }
